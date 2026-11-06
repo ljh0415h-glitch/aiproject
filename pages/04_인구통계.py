@@ -5,22 +5,28 @@ import matplotlib.font_manager as fm
 import os
 
 # -----------------------------------------------------------------------------
-# 1. 페이지 및 한글 폰트 강제 설정 (글자 깨짐 완벽 방지)
+# 1. 페이지 및 한글 폰트 강제 설정 (캐시 초기화 포함)
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="대전광역시 인구 구조 분석", layout="wide")
 
 def setup_korean_font():
-    """Linux(Streamlit Cloud) 및 로컬 환경에서 폰트를 등록하고 기본 설정합니다."""
+    """Linux(Streamlit Cloud) 및 로컬 환경에서 폰트를 설정하고 캐시를 정리합니다."""
     nanum_font_path = '/usr/share/fonts/truetype/nanum/NanumGothic.ttf'
     
     if os.path.exists(nanum_font_path):
-        # 폰트 파일 직접 등록
+        # 맷플롯립 폰트 매니저에 나눔고딕 명시적 추가
         fm.fontManager.addfont(nanum_font_path)
         font_prop = fm.FontProperties(fname=nanum_font_path)
         font_name = font_prop.get_name()
         
-        # 맷플롯립 기본 폰트 패밀리 지정
+        # 전역 폰트 설정
         plt.rcParams['font.family'] = font_name
+        
+        # 폰트 깨짐 방지를 위한 맷플롯립 내부 캐시 파일 삭제 시도
+        try:
+            fm._rebuild()
+        except AttributeError:
+            pass
     else:
         # 로컬 환경 (Windows / Mac)
         import platform
