@@ -8,12 +8,12 @@ from sklearn.preprocessing import StandardScaler
 import plotly.graph_objects as go
 
 # 페이지 기본 설정
-st.set_page_config(page_title="안정적인 기온 예측 대시보드", page_icon="📈", layout="wide")
+st.set_page_config(page_title="기온 예측 대시보드", page_icon="📈", layout="wide")
 
 st.title("🌡️ 회귀 알고리즘별 월별 평균기온 예측 대시보드")
-st.markdown("과거 기온 데이터를 바탕으로 **선형회getR**, **랜덤 포레스트**, **서포트 벡터 머신(SVR)** 알고리즘을 안정적으로 구동하여 기온을 예측합니다.")
+st.markdown("과거 기온 데이터를 바탕으로 **선형회귀**, **랜덤 포레스트**, **서포트 벡터 머신(SVR)** 알고리즘을 안전하게 구동하여 미래 기온을 예측합니다.")
 
-# 1. 안전한 데이터 불러오기 및 전처리 함수
+# 1. 데이터 불러오기 및 전처리 함수
 @st.cache_data
 def load_data():
     df = None
@@ -34,7 +34,6 @@ def load_data():
     }
 
     try:
-        # '일시' 컬럼 분리 (예: Oct-07)
         parsed = df['일시'].str.split('-', expand=True)
         df['Month'] = parsed[0].map(month_map)
         yy = parsed[1].astype(int)
@@ -53,7 +52,6 @@ def load_data():
         st.error(f"❌ 데이터 전처리 중 오류가 발생했습니다: {e}")
         st.stop()
 
-    # 평균기온 컬럼 결측치 제거 및 타입 보정
     df = df.dropna(subset=['평균기온(℃)']).copy()
     df['평균기온(℃)'] = pd.to_numeric(df['평균기온(℃)'], errors='coerce')
     df = df.dropna(subset=['평균기온(℃)'])
@@ -89,7 +87,7 @@ target_year = st.sidebar.number_input(
     step=1
 )
 
-# 3. 선택한 월 데이터 필터링 검증
+# 3. 데이터 필터링
 month_df = df[df['Month'] == selected_month].sort_values('Year')
 
 if month_df.empty:
@@ -103,7 +101,7 @@ min_year = int(month_df['Year'].min())
 max_year_data = int(month_df['Year'].max())
 all_years = np.arange(min_year, target_year + 1).reshape(-1, 1)
 
-# 4. 알고리즘별 모델 학습 및 예측 (안전 구동)
+# 4. 알고리즘 모델 학습 및 예측
 try:
     if "선형회귀" in algo_option:
         model = LinearRegression()
@@ -115,7 +113,7 @@ try:
         intercept = model.intercept_
         algo_name = "선형회귀 (Linear Regression)"
         algo_desc = f"""
-        * **작동 원리:** 데이터의 전반적인 추세를 가장 잘 대변하는 **하나의 직선($y = ax + b$)**을 그립니다. 최소제곱법을 이용해 오차의 합이 최소가 되는 기울기({slope:.4f})와 절편을 찾습니다.
+        * **작동 원리:** 데이터의 전반적인 추세를 가장 잘 대변하는 **하나의 직선**을 그립니다. 최소제곱법을 이용해 오차의 합이 최소가 되는 기울기({slope:.4f})와 절편을 찾습니다.
         * **특징:** 장기적인 온난화 트렌드나 일정한 증가·감소 경향을 파악하기에 직관적이고 강력합니다.
         """
 
@@ -127,7 +125,7 @@ try:
         
         algo_name = "랜덤 포레스트 회귀 (Random Forest)"
         algo_desc = f"""
-        * **작동 원리:** 수많은 **결정 트리(Decision Tree)**를 앙상블(집합)로 구성하여 각 트리가 낸 예측값들의 **평균**을 산출합니다.
+        * **작동 원리:** 수많은 **결정 트리(Decision Tree)**를 앙상블로 구성하여 각 트리가 낸 예측값들의 **평균**을 산출합니다.
         * **특징:** 데이터의 비선형적 패턴과 과거의 국소적인 변동을 유연하게 반영합니다.
         """
 
@@ -144,4 +142,47 @@ try:
         X_all_scaled = scaler_x.transform(all_years)
         pred_scaled = svr_model.predict(X_all_scaled)
         pred_curve = scaler_y.inverse_transform(pred_scaled.reshape(-1, 1)).ravel()
-        predicted_temp = float(pred_curve[-1
+        predicted_temp = float(pred_curve[-1])
+        
+        algo_name = "서포트 벡터 머신 (SVR, RBF Kernel)"
+        algo_desc = f"""
+        * **작동 원리:** 허용 가능한 오차 범위 내에서 데이터 특성을 가장 잘 설명하는 비선형 초평면(**RBF 커널**)을 찾습니다.
+        * **특징:** 데이터 포인트 사이의 복잡한 곡선 형태 굴곡을 정교하게 잡아내는 데 탁월합니다.
+        """
+except Exception as e:
+    st.error(f"❌ 머신러닝 모델 학습/예측 중 오류가 발생했습니다: {e}")
+    st.stop()
+
+# 5. 핵심 결과 요약 카드 출력
+col1, col2, col3 = st.columns(3)
+col1.metric(
+    label=f"🎯 {target_year}년 {selected_month}월 예측 평균기온",
+    value=f"{predicted_temp:.2f} ℃"
+)
+col2.metric(
+    label="🤖 사용 중인 알고리즘",
+    value=algo_option.split("(")[0].strip()
+)
+col3.metric(
+    label="📊 최근 관측 기온 대비 차이",
+    value=f"{predicted_temp - y[-1]:+.2f} ℃",
+    delta=f"{max_year_data}년({y[-1]:.1f}℃) 기준"
+)
+
+# 6. Plotly 인터랙티브 그래프 시각화
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=month_df['Year'],
+    y=month_df['평균기온(℃)'],
+    mode='lines+markers',
+    name=f'과거 실제 {selected_month}월 평균기온 ({min_year}~{max_year_data})',
+    line=dict(color='rgba(100, 149, 237, 0.4)', width=1.5),
+    marker=dict(color='#1f77b4', size=6),
+    hovertemplate='%{x}년: %{y:.1f}℃<extra></extra>'
+))
+
+past_mask = all_years.flatten() <= max_year_data
+fig.add_trace(go.Scatter(
+    x=all_years.flatten()[past_mask],
+    y
