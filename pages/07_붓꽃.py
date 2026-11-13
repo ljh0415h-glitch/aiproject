@@ -6,6 +6,10 @@ import seaborn as sns
 from sklearn.neighbors import KNeighborsClassifier
 import os
 
+# 윈도우 환경 등에서 맷플롯립(Matplotlib) 한글 폰트 깨짐 방지 설정
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['axes.unicode_minus'] = False
+
 st.set_page_config(page_title="붓꽃(Iris) 품종 예측기", page_icon="🌸", layout="wide")
 
 st.title("🌸 붓꽃(Iris) 품종 예측 및 분류 시각화 대시보드")
@@ -30,17 +34,25 @@ def load_data():
         st.error("저장.csv 파일을 찾을 수 없습니다.")
         st.stop()
 
+    # 인코딩 자동 탐색 및 강제 한글 디코딩 적용
     df = None
-    for enc in ['cp949', 'utf-8', 'euc-kr']:
+    for enc in ['cp949', 'euc-kr', 'utf-8']:
         try:
-            df = pd.read_csv(file_path, encoding=enc)
-            break
+            temp_df = pd.read_csv(file_path, encoding=enc)
+            # 한글 컬럼명이 깨지지 않고 정상 로드되었는지 확인
+            if '품종' in temp_df.columns or '꽃잎 길이' in temp_df.columns:
+                df = temp_df
+                break
         except Exception:
             continue
             
     if df is None:
-        st.error("파일 인코딩 오류가 발생했습니다.")
-        st.stop()
+        # 마지막 시도
+        try:
+            df = pd.read_csv(file_path, encoding='cp949', errors='ignore')
+        except:
+            st.error("파일 인코딩 오류가 발생했습니다. '저장.csv' 파일을 UTF-8 또는 CP949로 다시 저장해주세요.")
+            st.stop()
         
     return df
 
@@ -120,6 +132,7 @@ ax.set_ylabel("꽃이 너비 (cm)", fontsize=12)
 ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 ax.grid(True, linestyle='--', alpha=0.5)
 
+plt.tight_code = plt.tight_layout()
 plt.tight_layout()
 st.pyplot(fig)
 
