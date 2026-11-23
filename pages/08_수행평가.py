@@ -24,8 +24,7 @@ def set_korean_font():
 set_korean_font()
 
 
-def resolve_csv_path() -> Path | None:
-    """pages/08_수행평가.py 위치 기준으로 저장소 루트 및 주변 경로에서 CSV를 찾습니다."""
+def resolve_csv_path():
     here = Path(__file__).resolve().parent
     search_dirs = [here, here.parent, Path.cwd(), Path.cwd().parent]
 
@@ -53,7 +52,7 @@ def resolve_csv_path() -> Path | None:
 
 
 @st.cache_data
-def load_csv_data(source) -> pd.DataFrame:
+def load_csv_data(source):
     for enc in ["cp949", "euc-kr", "utf-8-sig", "utf-8"]:
         try:
             raw_df = pd.read_csv(source, encoding=enc)
@@ -206,4 +205,66 @@ with tab2:
     )
 
     with c2:
-        st.subheader(f"{selected_year}년 국
+        st.subheader(f"{selected_year}년 국적(지역)별 입국자 상위 {top_n}개국 (단위: 만 명)")
+        fig2, ax2 = plt.subplots(figsize=(9, 5))
+        bars = ax2.barh(
+            year_rank["국적지역"], year_rank["입국자수"] / 10000, color="#0d9488"
+        )
+        ax2.set_xlabel("입국자 수 (만 명)")
+        ax2.grid(True, axis="x", linestyle="--", alpha=0.5)
+        for bar in bars:
+            w = bar.get_width()
+            ax2.annotate(
+                f"{w:,.1f}만",
+                (w, bar.get_y() + bar.get_height() / 2),
+                textcoords="offset points",
+                xytext=(4, 0),
+                va="center",
+                fontsize=8.5,
+            )
+        ax2.set_xlim(0, year_rank["입국자수"].max() / 10000 * 1.15)
+        plt.tight_layout()
+        st.pyplot(fig2)
+
+    st.subheader("특정 국적(지역) 연도별 추이 비교")
+    all_countries = sorted(filtered_df["국적지역"].unique())
+    default_countries = [
+        c for c in ["중국", "일본", "타이완", "미국", "베트남"] if c in all_countries
+    ]
+    picked_countries = st.multiselect(
+        "비교할 국적(지역) 선택", options=all_countries, default=default_countries
+    )
+
+    if picked_countries:
+        country_pivot = (
+            filtered_df[filtered_df["국적지역"].isin(picked_countries)]
+            .pivot(index="년", columns="국적지역", values="입국자수")
+            .fillna(0)
+        )
+        st.line_chart(country_pivot)
+
+with tab3:
+    search_keyword = st.text_input(
+        "국적(지역) 검색", placeholder="예: 중국, 일본, 베트남..."
+    )
+    table_df = filtered_df.copy()
+    if search_keyword.strip():
+        table_df = table_df[
+            table_df["국적지역"].str.contains(
+                search_keyword.strip(), case=False, na=False
+            )
+        ]
+
+    st.dataframe(
+        table_df.sort_values(["년", "입국자수"], ascending=[False, False]),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    csv_bytes = table_df.to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        label="필터링된 데이터 CSV 다운로드",
+        data=csv_bytes,
+        file_name=f"외국인_입국자_필터결과_{year_range[0]}_{year_range[1]}.csv",
+        mime="text/csv",
+    )
