@@ -1,8 +1,8 @@
 streamlit
 pandas
-openpyxl
-matplotlib
 numpy
+matplotlib
 scikit-learn
-plotly
-seaborn
+koreanize-matplotlib
+folium
+streamlit-folium
